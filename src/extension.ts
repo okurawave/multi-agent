@@ -127,6 +127,7 @@ export async function deactivate() {
         // すべてのタスクを停止
         if (crewAIProvider) {
             await crewAIProvider.stopAllTasks();
+            crewAIProvider.dispose();
         }
         
         // Pythonプロセスを終了

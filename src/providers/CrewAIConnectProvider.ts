@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { PythonProcessManager } from '../services/PythonProcessManager';
 import { LoggingService } from '../services/LoggingService';
 import { ConfigurationService } from '../services/ConfigurationService';
+import { ChatWebviewManager } from '../webview/ChatWebviewManager';
 
 export interface TaskStatus {
     id: string;
@@ -24,13 +25,22 @@ export class CrewAIConnectProvider implements vscode.TreeDataProvider<TaskStatus
 
     private activeTasks: Map<string, TaskStatus> = new Map();
     private taskCounter: number = 0;
+    private chatWebviewManager: ChatWebviewManager;
 
     constructor(
         private context: vscode.ExtensionContext,
         private pythonProcessManager: PythonProcessManager,
         private loggingService: LoggingService,
         private configurationService: ConfigurationService
-    ) {}
+    ) {
+        // ChatWebviewManagerの初期化
+        this.chatWebviewManager = new ChatWebviewManager(
+            context,
+            loggingService,
+            this,
+            pythonProcessManager
+        );
+    }
 
     /**
      * TreeDataProviderの実装
@@ -100,9 +110,7 @@ ${element.endTime ? `**End Time:** ${element.endTime.toLocaleString()}` : ''}
      */
     async openChatInterface(): Promise<void> {
         this.loggingService.info('Opening chat interface...');
-        
-        // チャットWebviewを開く（将来の実装）
-        vscode.window.showInformationMessage('Chat interface will be implemented in the next task.');
+        await this.chatWebviewManager.showChatPanel();
     }
 
     /**
@@ -257,5 +265,14 @@ ${element.endTime ? `**End Time:** ${element.endTime.toLocaleString()}` : ''}
             failed: tasks.filter(t => t.status === 'failed').length,
             stopped: tasks.filter(t => t.status === 'stopped').length
         };
+    }
+
+    /**
+     * リソースの解放
+     */
+    dispose(): void {
+        if (this.chatWebviewManager) {
+            this.chatWebviewManager.dispose();
+        }
     }
 }
