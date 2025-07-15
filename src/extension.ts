@@ -3,11 +3,13 @@ import { CrewAIConnectProvider } from './providers/CrewAIConnectProvider';
 import { PythonProcessManager } from './services/PythonProcessManager';
 import { LoggingService } from './services/LoggingService';
 import { ConfigurationService } from './services/ConfigurationService';
+import { SidebarUIManager } from './ui/SidebarUIManager';
 
 let crewAIProvider: CrewAIConnectProvider;
 let pythonProcessManager: PythonProcessManager;
 let loggingService: LoggingService;
 let configurationService: ConfigurationService;
+let sidebarUIManager: SidebarUIManager;
 
 export async function activate(context: vscode.ExtensionContext) {
     try {
@@ -25,6 +27,14 @@ export async function activate(context: vscode.ExtensionContext) {
         crewAIProvider = new CrewAIConnectProvider(
             context,
             pythonProcessManager,
+            loggingService,
+            configurationService
+        );
+
+        // サイドバーUIマネージャーの初期化
+        sidebarUIManager = new SidebarUIManager(
+            context,
+            crewAIProvider,
             loggingService,
             configurationService
         );
@@ -122,6 +132,11 @@ export async function deactivate() {
         // Pythonプロセスを終了
         if (pythonProcessManager) {
             await pythonProcessManager.dispose();
+        }
+
+        // サイドバーUIマネージャーを終了
+        if (sidebarUIManager) {
+            sidebarUIManager.dispose();
         }
         
         loggingService?.info('CrewAI Connect extension deactivated successfully');

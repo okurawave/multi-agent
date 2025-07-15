@@ -54,6 +54,24 @@
         "title": "Open Settings",
         "category": "CrewAI",
         "icon": "$(settings-gear)"
+      },
+      {
+        "command": "crewai-connect.showStatistics",
+        "title": "Show Statistics",
+        "category": "CrewAI",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "crewai-connect.clearCompleted",
+        "title": "Clear Completed Tasks",
+        "category": "CrewAI",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "crewai-connect.quickStartTask",
+        "title": "Quick Start Task",
+        "category": "CrewAI",
+        "icon": "$(plus)"
       }
     ],
     "viewsContainers": {
@@ -88,6 +106,21 @@
         },
         {
           "command": "crewai-connect.openSettings",
+          "when": "view == crewai-connect.sidebar",
+          "group": "navigation"
+        },
+        {
+          "command": "crewai-connect.quickStartTask",
+          "when": "view == crewai-connect.sidebar",
+          "group": "navigation"
+        },
+        {
+          "command": "crewai-connect.showStatistics",
+          "when": "view == crewai-connect.sidebar",
+          "group": "navigation"
+        },
+        {
+          "command": "crewai-connect.clearCompleted",
           "when": "view == crewai-connect.sidebar",
           "group": "navigation"
         }
