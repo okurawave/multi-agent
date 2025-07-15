@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { LoggingService } from '../services/LoggingService';
 import { ConfigurationService } from '../services/ConfigurationService';
 import { EnhancedPythonProcessManager } from '../services/EnhancedPythonProcessManager';
+import { LLMAPIWrapper, LLMRequest, LLMResponse } from '../services/LLMAPIWrapper';
 import { 
     IPCMessageType, 
     TaskProgressNotification,
@@ -28,6 +29,7 @@ export interface TaskInfo {
 
 export class IPCService {
     private processManager: EnhancedPythonProcessManager;
+    private llmWrapper: LLMAPIWrapper;
     private tasks: Map<string, TaskInfo> = new Map();
     private eventListeners: { [event: string]: Function[] } = {};
 
@@ -39,6 +41,8 @@ export class IPCService {
             configurationService,
             loggingService
         );
+        
+        this.llmWrapper = new LLMAPIWrapper(loggingService);
 
         this.setupEventHandlers();
     }
@@ -216,10 +220,17 @@ export class IPCService {
      */
     async sendLLMRequest(prompt: string, options?: any): Promise<any> {
         try {
-            const result = await this.processManager.sendRequest(IPCMessageType.LLM_REQUEST, {
+            const llmRequest: LLMRequest = {
                 prompt,
-                options
-            });
+                model: options?.model,
+                temperature: options?.temperature,
+                maxTokens: options?.maxTokens,
+                systemPrompt: options?.systemPrompt,
+                context: options?.context,
+                userId: options?.userId
+            };
+
+            const result = await this.llmWrapper.sendRequest(llmRequest, options);
 
             this.loggingService.debug(`LLM request completed: ${prompt.substring(0, 100)}...`);
             return result;
@@ -229,6 +240,54 @@ export class IPCService {
             this.loggingService.error(`LLM request failed: ${errorMessage}`);
             throw error;
         }
+    }
+
+    /**
+     * バッチLLMリクエストを送信
+     */
+    async sendBatchLLMRequests(requests: LLMRequest[]): Promise<LLMResponse[]> {
+        try {
+            const results = await this.llmWrapper.sendBatchRequests(requests);
+            this.loggingService.debug(`Batch LLM requests completed: ${requests.length} requests`);
+            return results;
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`Batch LLM requests failed: ${errorMessage}`);
+            throw error;
+        }
+    }
+
+    /**
+     * 利用可能なLLMモデルを取得
+     */
+    async getAvailableLLMModels(): Promise<string[]> {
+        try {
+            return await this.llmWrapper.getAvailableModels();
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`Failed to get available LLM models: ${errorMessage}`);
+            return [];
+        }
+    }
+
+    /**
+     * LLMモデルの情報を取得
+     */
+    async getLLMModelInfo(modelId?: string): Promise<any> {
+        try {
+            return await this.llmWrapper.getModelInfo(modelId);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`Failed to get LLM model info: ${errorMessage}`);
+            return null;
+        }
+    }
+
+    /**
+     * プロンプトを最適化
+     */
+    optimizePrompt(prompt: string, maxTokens?: number): string {
+        return this.llmWrapper.optimizePrompt(prompt, maxTokens);
     }
 
     /**
@@ -268,10 +327,12 @@ export class IPCService {
      */
     getStatistics(): any {
         const processStats = this.processManager.getStatistics();
+        const llmStats = this.llmWrapper.getStatistics();
         const taskStats = this.getTaskStatistics();
         
         return {
             ...processStats,
+            llm: llmStats,
             tasks: taskStats
         };
     }

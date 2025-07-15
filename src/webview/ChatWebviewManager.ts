@@ -199,35 +199,50 @@ export class ChatWebviewManager {
 - Create task plans
 - Monitor progress
 
-**💡 Examples:**
-- "Create a simple Python web API"
-- "Generate a React component for user authentication"
-- "Write unit tests for my functions"
-- "Create a README file for this project"
+**💬 Chat Commands:**
+- Ask me anything about development
+- Request explanations or help
+- Get coding assistance
+- Project guidance
 
-Just describe what you'd like to work on, and I'll get started!`
+**Example requests:**
+- "Create a Python script for data analysis"
+- "Generate a React component for user login"
+- "Help me fix this TypeScript error"
+- "Explain how to implement authentication"
+
+Just type your request and I'll help you get it done!`
             };
         }
-
-        if (normalizedContent.includes('status') || normalizedContent.includes('progress')) {
-            const stats = this.crewAIProvider.getStatistics();
+        
+        // 一般的な質問の場合はLLMを使用
+        try {
+            const llmResponse = await this.ipcService.sendLLMRequest(content, {
+                systemPrompt: `You are CrewAI Connect, a helpful AI assistant for software development. 
+                You help developers with coding, project management, and technical questions.
+                Be concise but helpful, and always provide actionable advice.
+                Format your response with markdown for better readability.`,
+                temperature: 0.7,
+                maxTokens: 1000
+            });
+            
             return {
-                content: `📊 **Current Status:**
+                content: llmResponse.content || "I'm here to help! Could you please provide more details about what you'd like me to assist with?"
+            };
+        } catch (error) {
+            this.loggingService.error(`LLM request failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            
+            // フォールバック応答
+            return {
+                content: `I'm here to help you with your development tasks! While I'm having trouble connecting to the AI service right now, you can still:
 
-- **Running Tasks:** ${stats.running}
-- **Completed:** ${stats.completed}
-- **Total:** ${stats.total}
+- Start new tasks by saying "create", "build", or "generate"
+- Get help by typing "help"
+- Monitor your active tasks in the sidebar
 
-${stats.running > 0 ? 'I have tasks running in the background. Check the sidebar for more details!' : 'No tasks currently running. What would you like me to work on?'}`
+Please try again, or check the extension logs for more details.`
             };
         }
-
-        // デフォルトの応答
-        return {
-            content: `I understand you want me to: "${content}"
-
-Let me start working on this task for you. I'll analyze your request and begin implementation.`
-        };
     }
 
     /**
