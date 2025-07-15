@@ -21,6 +21,7 @@ export class ChatWebviewManager {
     private panel: vscode.WebviewPanel | undefined;
     private messages: ChatMessage[] = [];
     private messageCounter = 0;
+    private selectedModel: string = 'auto';
 
     constructor(
         private context: vscode.ExtensionContext,
@@ -94,9 +95,18 @@ export class ChatWebviewManager {
                     case 'stopTask':
                         await this.stopCurrentTask(message.taskId);
                         break;
+                    case 'modelChanged':
+                        await this.handleModelChange(message.model);
+                        break;
                     case 'ready':
                         // Webviewの準備完了通知
                         await this.refreshMessages();
+                        await this.updateAvailableModels();
+                        break;
+                        break;
+                    case 'modelChanged':
+                        // モデル変更通知
+                        this.loggingService.info(`Model changed to: ${message.model}`);
                         break;
                 }
             },
@@ -218,6 +228,7 @@ Just type your request and I'll help you get it done!`
         // 一般的な質問の場合はLLMを使用
         try {
             const llmResponse = await this.ipcService.sendLLMRequest(content, {
+                model: this.selectedModel === 'auto' ? undefined : this.selectedModel,
                 systemPrompt: `You are CrewAI Connect, a helpful AI assistant for software development. 
                 You help developers with coding, project management, and technical questions.
                 Be concise but helpful, and always provide actionable advice.
@@ -360,6 +371,8 @@ Please try again, or check the extension logs for more details.`
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         .chat-title {
@@ -371,6 +384,38 @@ Please try again, or check the extension logs for more details.`
         .chat-controls {
             display: flex;
             gap: 10px;
+            align-items: center;
+        }
+
+        .model-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .model-selector label {
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground);
+        }
+
+        .model-selector select {
+            background-color: var(--vscode-dropdown-background);
+            color: var(--vscode-dropdown-foreground);
+            border: 1px solid var(--vscode-dropdown-border);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            min-width: 140px;
+        }
+
+        .model-selector select:hover {
+            border-color: var(--vscode-textLink-foreground);
+        }
+
+        .model-selector select:focus {
+            outline: none;
+            border-color: var(--vscode-focusBorder);
         }
 
         .btn {
@@ -559,12 +604,40 @@ Please try again, or check the extension logs for more details.`
             margin-bottom: 10px;
             color: var(--vscode-textLink-foreground);
         }
+
+        .message.system-message {
+            align-self: center;
+            background-color: var(--vscode-statusBar-background);
+            color: var(--vscode-statusBar-foreground);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            border: none;
+            margin: 5px 0;
+        }
+
+        .message.system-message .message-content {
+            background-color: transparent;
+            color: inherit;
+            padding: 0;
+            border: none;
+        }
     </style>
 </head>
 <body>
     <div class="chat-header">
         <div class="chat-title">🤖 CrewAI Connect Chat</div>
         <div class="chat-controls">
+            <div class="model-selector">
+                <label for="modelSelect">Model:</label>
+                <select id="modelSelect" onchange="onModelChange()">
+                    <option value="auto">Auto Select</option>
+                    <option value="gpt-4">GPT-4</option>
+                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                    <option value="claude">Claude</option>
+                    <option value="fallback">Fallback</option>
+                </select>
+            </div>
             <button class="btn secondary" onclick="clearChat()">Clear Chat</button>
             <button class="btn secondary" onclick="showHelp()">Help</button>
         </div>
@@ -592,6 +665,7 @@ Please try again, or check the extension logs for more details.`
     <script>
         const vscode = acquireVsCodeApi();
         let messages = [];
+        let selectedModel = 'auto';
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -650,6 +724,53 @@ Please try again, or check the extension logs for more details.`
                 type: 'stopTask',
                 taskId: taskId
             });
+        }
+
+        function onModelChange() {
+            const modelSelect = document.getElementById('modelSelect');
+            selectedModel = modelSelect.value;
+            
+            // 拡張機能にモデル変更を通知
+            vscode.postMessage({
+                type: 'modelChanged',
+                model: selectedModel
+            });
+            
+            // モデル変更の通知メッセージを表示
+            const modelName = modelSelect.options[modelSelect.selectedIndex].text;
+            addSystemMessage('Model changed to: ' + modelName);
+        }
+
+        function addSystemMessage(message) {
+            const chatContainer = document.getElementById('chatContainer');
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message system-message';
+            messageElement.innerHTML = '<div class="message-content">' +
+                '<small style="color: var(--vscode-descriptionForeground);">' + message + '</small>' +
+                '</div>';
+            chatContainer.appendChild(messageElement);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function updateAvailableModels(models) {
+            const modelSelect = document.getElementById('modelSelect');
+            const currentValue = modelSelect.value;
+            
+            // 既存のオプションをクリア（Auto Selectは残す）
+            while (modelSelect.children.length > 1) {
+                modelSelect.removeChild(modelSelect.lastChild);
+            }
+            
+            // 利用可能なモデルを追加
+            models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.toLowerCase().replace(/\s+/g, '-');
+                option.textContent = model;
+                modelSelect.appendChild(option);
+            });
+            
+            // 以前の選択を復元
+            modelSelect.value = currentValue;
         }
 
         function formatMessageContent(content) {
@@ -746,6 +867,10 @@ Please try again, or check the extension logs for more details.`
                 case 'clearMessages':
                     clearMessages();
                     break;
+                case 'updateModels':
+                    updateAvailableModels(data.models);
+                    break;
+                    break;
                 case 'refreshMessages':
                     refreshMessages(data.messages);
                     break;
@@ -755,6 +880,32 @@ Please try again, or check the extension logs for more details.`
 </body>
 </html>
         `;
+    }
+
+    /**
+     * モデル変更を処理
+     */
+    private async handleModelChange(model: string): Promise<void> {
+        this.selectedModel = model;
+        this.loggingService.info(`Selected model changed to: ${model}`);
+    }
+
+    /**
+     * 利用可能なモデルをWebviewに送信
+     */
+    private async updateAvailableModels(): Promise<void> {
+        try {
+            const models = await this.ipcService.getAvailableLLMModels();
+            
+            if (this.panel) {
+                this.panel.webview.postMessage({
+                    type: 'updateModels',
+                    models: models
+                });
+            }
+        } catch (error) {
+            this.loggingService.error(`Failed to update available models: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
     }
 
     /**
