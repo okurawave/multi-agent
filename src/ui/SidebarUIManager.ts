@@ -105,6 +105,12 @@ export class SidebarUIManager {
                 await this.showModelInfo();
             })
         );
+
+        this.context.subscriptions.push(
+            vscode.commands.registerCommand('crewai-connect.checkLLMAPI', async () => {
+                await this.checkLLMAPI();
+            })
+        );
     }
 
     /**
@@ -474,6 +480,51 @@ export class SidebarUIManager {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             this.loggingService.error(`Failed to show model info: ${errorMessage}`);
             vscode.window.showErrorMessage(`Failed to show model info: ${errorMessage}`);
+        }
+    }
+
+    /**
+     * LLM APIのチェック
+     */
+    private async checkLLMAPI(): Promise<void> {
+        try {
+            vscode.window.showInformationMessage('Checking LLM API availability...');
+            
+            const result = await this.crewAIProvider.checkLLMAPIAvailability();
+            
+            const statusMessage = result.isAvailable 
+                ? `✅ LLM API is available (${result.modelCount} models found)`
+                : `❌ LLM API is not available: ${result.error}`;
+            
+            const details = `**LLM API Status Check**\n\n` +
+                `**Available:** ${result.isAvailable ? 'Yes' : 'No'}\n` +
+                `**VS Code Version:** ${result.version || 'Unknown'}\n` +
+                `**Model Count:** ${result.modelCount || 0}\n` +
+                `**Error:** ${result.error || 'None'}\n\n` +
+                `**Recommendations:**\n` +
+                (!result.isAvailable ? 
+                    `- Update VS Code to the latest version\n` +
+                    `- Install GitHub Copilot extension\n` +
+                    `- Check if you have access to language models` 
+                    : `- ${result.modelCount} models are available for use`);
+            
+            const document = await vscode.workspace.openTextDocument({
+                content: details,
+                language: 'markdown'
+            });
+            
+            await vscode.window.showTextDocument(document);
+            
+            if (result.isAvailable) {
+                vscode.window.showInformationMessage(statusMessage);
+            } else {
+                vscode.window.showWarningMessage(statusMessage);
+            }
+            
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`Failed to check LLM API: ${errorMessage}`);
+            vscode.window.showErrorMessage(`Failed to check LLM API: ${errorMessage}`);
         }
     }
 

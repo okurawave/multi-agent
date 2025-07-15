@@ -96,6 +96,12 @@
         "title": "Show Model Info",
         "category": "CrewAI",
         "icon": "$(info)"
+      },
+      {
+        "command": "crewai-connect.checkLLMAPI",
+        "title": "Check LLM API",
+        "category": "CrewAI",
+        "icon": "$(heart)"
       }
     ],
     "viewsContainers": {
@@ -166,6 +172,11 @@
         },
         {
           "command": "crewai-connect.showModelInfo",
+          "when": "view == crewai-connect.sidebar",
+          "group": "navigation"
+        },
+        {
+          "command": "crewai-connect.checkLLMAPI",
           "when": "view == crewai-connect.sidebar",
           "group": "navigation"
         }

@@ -259,9 +259,20 @@ export class LLMAPIWrapper {
      */
     async getAvailableModels(): Promise<string[]> {
         try {
+            this.loggingService.info('Attempting to get available models from VS Code Language Model API...');
+            
             // VS Code Language Model APIから利用可能なモデルを取得
             const models = await vscode.lm.selectChatModels();
+            
+            this.loggingService.info(`Found ${models.length} models from VS Code API`);
+            
+            if (models.length === 0) {
+                this.loggingService.warn('No models returned from VS Code Language Model API');
+                return this.getFallbackModels();
+            }
+            
             const modelNames = models.map(model => {
+                this.loggingService.debug(`Model found: ${model.name} (${model.vendor}) - ID: ${model.id}`);
                 // モデル名を適切にフォーマット
                 return this.formatModelName(model);
             });
@@ -273,17 +284,25 @@ export class LLMAPIWrapper {
             return availableModels;
             
         } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`VS Code Language Model API error: ${errorMessage}`);
             this.loggingService.warn('VS Code Language Model API not available, using fallback models');
             
-            // フォールバック用の基本モデルリスト
-            return [
-                'Auto Select',
-                'Fallback Model (Mock)',
-                'GPT-4 (Not Available)',
-                'Claude (Not Available)',
-                'Gemini (Not Available)'
-            ];
+            return this.getFallbackModels();
         }
+    }
+
+    /**
+     * フォールバック用のモデルリストを取得
+     */
+    private getFallbackModels(): string[] {
+        return [
+            'Auto Select',
+            'Fallback Model (Mock)',
+            'GPT-4 (Not Available)',
+            'Claude (Not Available)',
+            'Gemini (Not Available)'
+        ];
     }
 
     /**
@@ -428,5 +447,55 @@ export class LLMAPIWrapper {
             failedRequests: 0,
             averageResponseTime: 0
         };
+    }
+
+    /**
+     * VS Code Language Model APIの利用可能性をチェック
+     */
+    async checkAPIAvailability(): Promise<{
+        isAvailable: boolean;
+        version?: string;
+        error?: string;
+        modelCount?: number;
+    }> {
+        try {
+            this.loggingService.info('Checking VS Code Language Model API availability...');
+            
+            // vscode.lm が存在するかチェック
+            if (!vscode.lm) {
+                return {
+                    isAvailable: false,
+                    error: 'vscode.lm is not available in this VS Code version'
+                };
+            }
+            
+            // selectChatModels が存在するかチェック
+            if (typeof vscode.lm.selectChatModels !== 'function') {
+                return {
+                    isAvailable: false,
+                    error: 'vscode.lm.selectChatModels is not available'
+                };
+            }
+            
+            // 実際にモデルを取得してみる
+            const models = await vscode.lm.selectChatModels();
+            
+            this.loggingService.info(`VS Code Language Model API is available with ${models.length} models`);
+            
+            return {
+                isAvailable: true,
+                modelCount: models.length,
+                version: vscode.version
+            };
+            
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`VS Code Language Model API check failed: ${errorMessage}`);
+            
+            return {
+                isAvailable: false,
+                error: errorMessage
+            };
+        }
     }
 }

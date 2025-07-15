@@ -573,4 +573,20 @@ export class IPCService {
             throw error;
         }
     }
+
+    /**
+     * LLM APIの利用可能性をチェック
+     */
+    async checkLLMAPIAvailability(): Promise<any> {
+        try {
+            return await this.llmWrapper.checkAPIAvailability();
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`Failed to check LLM API availability: ${errorMessage}`);
+            return {
+                isAvailable: false,
+                error: errorMessage
+            };
+        }
+    }
 }

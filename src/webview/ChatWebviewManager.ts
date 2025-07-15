@@ -102,6 +102,7 @@ export class ChatWebviewManager {
                         // Webviewの準備完了通知
                         await this.refreshMessages();
                         await this.updateAvailableModels();
+                        await this.checkAndNotifyAPIStatus();
                         break;
                         break;
                     case 'modelChanged':
@@ -927,6 +928,47 @@ Please try again, or check the extension logs for more details.`
             this.loggingService.info(`Updated available models: ${models.length} models found`);
         } catch (error) {
             this.loggingService.error(`Failed to update available models: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
+     * APIステータスをチェックして通知
+     */
+    private async checkAndNotifyAPIStatus(): Promise<void> {
+        try {
+            const apiStatus = await this.ipcService.checkLLMAPIAvailability();
+            
+            if (!apiStatus.isAvailable) {
+                await this.addMessage({
+                    id: this.generateMessageId(),
+                    content: `⚠️ **LLM API Status**: ${apiStatus.error}\n\n` +
+                        `To use language models, please:\n` +
+                        `1. Update VS Code to the latest version\n` +
+                        `2. Install GitHub Copilot extension\n` +
+                        `3. Sign in to your GitHub account\n\n` +
+                        `Currently using fallback responses only.`,
+                    timestamp: new Date(),
+                    isUser: false
+                });
+            } else if (apiStatus.modelCount === 0) {
+                await this.addMessage({
+                    id: this.generateMessageId(),
+                    content: `⚠️ **LLM API Status**: Connected but no models available\n\n` +
+                        `Please check your language model access and try again.`,
+                    timestamp: new Date(),
+                    isUser: false
+                });
+            } else {
+                await this.addMessage({
+                    id: this.generateMessageId(),
+                    content: `✅ **LLM API Status**: Connected with ${apiStatus.modelCount} models available\n\n` +
+                        `You can now use language models for assistance!`,
+                    timestamp: new Date(),
+                    isUser: false
+                });
+            }
+        } catch (error) {
+            this.loggingService.error(`Failed to check API status: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
 
