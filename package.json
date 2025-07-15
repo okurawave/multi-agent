@@ -37,6 +37,23 @@
         "command": "crewai-connect.stopAllTasks",
         "title": "Stop All Tasks",
         "category": "CrewAI"
+      },
+      {
+        "command": "crewai-connect.refresh",
+        "title": "Refresh",
+        "category": "CrewAI",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "crewai-connect.showOutput",
+        "title": "Show Output",
+        "category": "CrewAI"
+      },
+      {
+        "command": "crewai-connect.openSettings",
+        "title": "Open Settings",
+        "category": "CrewAI",
+        "icon": "$(settings-gear)"
       }
     ],
     "viewsContainers": {
@@ -61,6 +78,16 @@
       "view/title": [
         {
           "command": "crewai-connect.openChat",
+          "when": "view == crewai-connect.sidebar",
+          "group": "navigation"
+        },
+        {
+          "command": "crewai-connect.refresh",
+          "when": "view == crewai-connect.sidebar",
+          "group": "navigation"
+        },
+        {
+          "command": "crewai-connect.openSettings",
           "when": "view == crewai-connect.sidebar",
           "group": "navigation"
         }

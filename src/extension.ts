@@ -1,14 +1,132 @@
 import * as vscode from 'vscode';
+import { CrewAIConnectProvider } from './providers/CrewAIConnectProvider';
+import { PythonProcessManager } from './services/PythonProcessManager';
+import { LoggingService } from './services/LoggingService';
+import { ConfigurationService } from './services/ConfigurationService';
 
-export function activate(context: vscode.ExtensionContext) {
-    console.log('CrewAI Connect extension is now active!');
+let crewAIProvider: CrewAIConnectProvider;
+let pythonProcessManager: PythonProcessManager;
+let loggingService: LoggingService;
+let configurationService: ConfigurationService;
 
-    // Hello Worldコマンドを登録
-    const disposable = vscode.commands.registerCommand('crewai-connect.helloWorld', () => {
-        vscode.window.showInformationMessage('Hello World from CrewAI Connect!');
-    });
+export async function activate(context: vscode.ExtensionContext) {
+    try {
+        // ログサービスの初期化
+        loggingService = new LoggingService();
+        loggingService.info('CrewAI Connect extension is activating...');
 
-    context.subscriptions.push(disposable);
+        // 設定サービスの初期化
+        configurationService = new ConfigurationService();
+
+        // Pythonプロセスマネージャーの初期化
+        pythonProcessManager = new PythonProcessManager(configurationService, loggingService);
+
+        // CrewAIプロバイダーの初期化
+        crewAIProvider = new CrewAIConnectProvider(
+            context,
+            pythonProcessManager,
+            loggingService,
+            configurationService
+        );
+
+        // サイドバープロバイダーの登録
+        vscode.window.registerTreeDataProvider('crewai-connect.sidebar', crewAIProvider);
+
+        // コマンドの登録
+        registerCommands(context);
+
+        // 拡張機能のアクティベーション完了
+        loggingService.info('CrewAI Connect extension activated successfully!');
+        
+        // 歓迎メッセージを表示
+        vscode.window.showInformationMessage('CrewAI Connect is now active! Click the robot icon in the Activity Bar to get started.');
+
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        loggingService.error(`Failed to activate CrewAI Connect: ${errorMessage}`);
+        vscode.window.showErrorMessage(`Failed to activate CrewAI Connect: ${errorMessage}`);
+    }
 }
 
-export function deactivate() {}
+function registerCommands(context: vscode.ExtensionContext) {
+    // Start New Task コマンド
+    const openChatCommand = vscode.commands.registerCommand('crewai-connect.openChat', async () => {
+        try {
+            loggingService.info('Opening CrewAI chat interface...');
+            await crewAIProvider.openChatInterface();
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            loggingService.error(`Failed to open chat interface: ${errorMessage}`);
+            vscode.window.showErrorMessage(`Failed to open chat interface: ${errorMessage}`);
+        }
+    });
+
+    // Stop All Tasks コマンド
+    const stopAllTasksCommand = vscode.commands.registerCommand('crewai-connect.stopAllTasks', async () => {
+        try {
+            loggingService.info('Stopping all CrewAI tasks...');
+            await crewAIProvider.stopAllTasks();
+            vscode.window.showInformationMessage('All CrewAI tasks have been stopped.');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            loggingService.error(`Failed to stop tasks: ${errorMessage}`);
+            vscode.window.showErrorMessage(`Failed to stop tasks: ${errorMessage}`);
+        }
+    });
+
+    // Refresh サイドバー コマンド
+    const refreshCommand = vscode.commands.registerCommand('crewai-connect.refresh', () => {
+        loggingService.info('Refreshing CrewAI sidebar...');
+        crewAIProvider.refresh();
+    });
+
+    // Show Output コマンド
+    const showOutputCommand = vscode.commands.registerCommand('crewai-connect.showOutput', () => {
+        loggingService.showOutputChannel();
+    });
+
+    // 設定を開く コマンド
+    const openSettingsCommand = vscode.commands.registerCommand('crewai-connect.openSettings', () => {
+        vscode.commands.executeCommand('workbench.action.openSettings', 'crewai-connect');
+    });
+
+    // コマンドをコンテキストに追加
+    context.subscriptions.push(
+        openChatCommand,
+        stopAllTasksCommand,
+        refreshCommand,
+        showOutputCommand,
+        openSettingsCommand
+    );
+
+    // 設定変更の監視
+    const configurationChangeListener = vscode.workspace.onDidChangeConfiguration(event => {
+        if (event.affectsConfiguration('crewai-connect')) {
+            loggingService.info('CrewAI Connect configuration changed');
+            configurationService.reloadConfiguration();
+        }
+    });
+
+    context.subscriptions.push(configurationChangeListener);
+}
+
+export async function deactivate() {
+    try {
+        loggingService?.info('CrewAI Connect extension is deactivating...');
+        
+        // すべてのタスクを停止
+        if (crewAIProvider) {
+            await crewAIProvider.stopAllTasks();
+        }
+        
+        // Pythonプロセスを終了
+        if (pythonProcessManager) {
+            await pythonProcessManager.dispose();
+        }
+        
+        loggingService?.info('CrewAI Connect extension deactivated successfully');
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        loggingService?.error(`Error during deactivation: ${errorMessage}`);
+    }
+}
