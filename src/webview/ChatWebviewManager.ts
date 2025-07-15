@@ -762,24 +762,55 @@ Please try again, or check the extension logs for more details.`
             autoOption.textContent = 'Auto Select';
             modelSelect.appendChild(autoOption);
             
-            // 利用可能なモデルを追加
-            models.forEach((model, index) => {
-                if (model !== 'Auto Select') {
-                    const option = document.createElement('option');
-                    option.value = model.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
-                    option.textContent = model;
+            // 利用可能なモデルをカテゴリー別に追加
+            if (modelInfos && modelInfos.length > 0) {
+                // 利用可能なモデルを先に追加
+                const availableModels = modelInfos.filter(info => info.isAvailable);
+                if (availableModels.length > 0) {
+                    const availableGroup = document.createElement('optgroup');
+                    availableGroup.label = 'Available Models';
                     
-                    // モデル情報からツールチップを作成
-                    if (modelInfos && modelInfos[index - 1]) {
-                        const info = modelInfos[index - 1];
-                        option.title = 'Vendor: ' + info.vendor + 
-                                      ', Max Tokens: ' + info.maxInputTokens + 
-                                      ', Available: ' + (info.isAvailable ? 'Yes' : 'No');
-                    }
+                    availableModels.forEach(info => {
+                        const option = document.createElement('option');
+                        option.value = info.id;
+                        option.textContent = info.name + ' (' + info.vendor + ')';
+                        option.title = 'Max Tokens: ' + info.maxInputTokens.toLocaleString() + 
+                                      ', Capabilities: ' + (info.capabilities ? info.capabilities.join(', ') : 'Unknown');
+                        availableGroup.appendChild(option);
+                    });
                     
-                    modelSelect.appendChild(option);
+                    modelSelect.appendChild(availableGroup);
                 }
-            });
+                
+                // 利用不可能なモデルを追加
+                const unavailableModels = modelInfos.filter(info => !info.isAvailable);
+                if (unavailableModels.length > 0) {
+                    const unavailableGroup = document.createElement('optgroup');
+                    unavailableGroup.label = 'Mock Models (For Testing)';
+                    
+                    unavailableModels.forEach(info => {
+                        const option = document.createElement('option');
+                        option.value = info.id;
+                        option.textContent = info.name + ' (' + info.vendor + ')';
+                        option.title = 'Max Tokens: ' + info.maxInputTokens.toLocaleString() + 
+                                      ', Capabilities: ' + (info.capabilities ? info.capabilities.join(', ') : 'Unknown');
+                        option.disabled = true;
+                        unavailableGroup.appendChild(option);
+                    });
+                    
+                    modelSelect.appendChild(unavailableGroup);
+                }
+            } else {
+                // フォールバック：旧形式のモデル名リスト
+                models.forEach((model, index) => {
+                    if (model !== 'Auto Select') {
+                        const option = document.createElement('option');
+                        option.value = model.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
+                        option.textContent = model;
+                        modelSelect.appendChild(option);
+                    }
+                });
+            }
             
             // 以前の選択を復元
             if (currentValue) {
@@ -787,8 +818,13 @@ Please try again, or check the extension logs for more details.`
             }
             
             // モデル情報が変更されたことを通知
-            if (models.length > 1) {
-                addSystemMessage('Available models updated: ' + (models.length - 1) + ' models found');
+            const availableCount = modelInfos ? modelInfos.filter(info => info.isAvailable).length : 0;
+            const totalCount = modelInfos ? modelInfos.length : models.length - 1;
+            
+            if (availableCount > 0) {
+                addSystemMessage('Models updated: ' + availableCount + ' available, ' + (totalCount - availableCount) + ' mock models');
+            } else if (totalCount > 0) {
+                addSystemMessage('Models updated: ' + totalCount + ' mock models (no real models available)');
             }
         }
 

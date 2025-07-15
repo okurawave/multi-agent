@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { LoggingService } from './LoggingService';
+import { ModelSelectionManager, ModelInfo } from './ModelSelectionManager';
 
 export interface LLMRequest {
     prompt: string;
@@ -41,7 +42,11 @@ export class LLMAPIWrapper {
         retryDelay: 1000
     };
 
-    constructor(private loggingService: LoggingService) {}
+    private modelSelectionManager: ModelSelectionManager;
+
+    constructor(private loggingService: LoggingService) {
+        this.modelSelectionManager = new ModelSelectionManager(loggingService);
+    }
 
     /**
      * LLMリクエストを送信
@@ -115,11 +120,11 @@ export class LLMAPIWrapper {
                 m.id.toLowerCase().includes(preferredModel.toLowerCase()) ||
                 m.name.toLowerCase().includes(preferredModel.toLowerCase()) ||
                 m.vendor.toLowerCase().includes(preferredModel.toLowerCase()) ||
-                this.formatModelName(m).toLowerCase().includes(preferredModel.toLowerCase())
+                this.formatVSCodeModelName(m).toLowerCase().includes(preferredModel.toLowerCase())
             );
             
             if (preferred) {
-                this.loggingService.info(`Selected preferred model: ${this.formatModelName(preferred)}`);
+                this.loggingService.info(`Selected preferred model: ${this.formatVSCodeModelName(preferred)}`);
                 return preferred;
             }
         }
@@ -154,14 +159,14 @@ export class LLMAPIWrapper {
         for (const priority of modelPriority) {
             const selectedModel = models.find(priority);
             if (selectedModel) {
-                this.loggingService.info(`Auto-selected model: ${this.formatModelName(selectedModel)}`);
+                this.loggingService.info(`Auto-selected model: ${this.formatVSCodeModelName(selectedModel)}`);
                 return selectedModel;
             }
         }
         
         // フォールバック：最初のモデル
         const fallbackModel = models[0];
-        this.loggingService.info(`Fallback to first available model: ${this.formatModelName(fallbackModel)}`);
+        this.loggingService.info(`Fallback to first available model: ${this.formatVSCodeModelName(fallbackModel)}`);
         return fallbackModel;
     }
 
@@ -259,59 +264,39 @@ export class LLMAPIWrapper {
      */
     async getAvailableModels(): Promise<string[]> {
         try {
-            this.loggingService.info('Attempting to get available models from VS Code Language Model API...');
+            await this.modelSelectionManager.updateAvailableModels();
+            const models = this.modelSelectionManager.getAllModels();
             
-            // VS Code Language Model APIから利用可能なモデルを取得
-            const models = await vscode.lm.selectChatModels();
+            const modelNames = ['Auto Select', ...models.map(m => this.formatModelName(m))];
             
-            this.loggingService.info(`Found ${models.length} models from VS Code API`);
-            
-            if (models.length === 0) {
-                this.loggingService.warn('No models returned from VS Code Language Model API');
-                return this.getFallbackModels();
-            }
-            
-            const modelNames = models.map(model => {
-                this.loggingService.debug(`Model found: ${model.name} (${model.vendor}) - ID: ${model.id}`);
-                // モデル名を適切にフォーマット
-                return this.formatModelName(model);
-            });
-            
-            // Auto Selectを先頭に追加
-            const availableModels = ['Auto Select', ...modelNames];
-            
-            this.loggingService.info(`Available models: ${availableModels.join(', ')}`);
-            return availableModels;
+            this.loggingService.info(`Available models: ${modelNames.join(', ')}`);
+            return modelNames;
             
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            this.loggingService.error(`VS Code Language Model API error: ${errorMessage}`);
-            this.loggingService.warn('VS Code Language Model API not available, using fallback models');
-            
-            return this.getFallbackModels();
+            this.loggingService.error(`Failed to get available models: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            return ['Auto Select', 'Fallback Model (Mock)'];
         }
     }
 
     /**
-     * フォールバック用のモデルリストを取得
+     * モデル名をフォーマット（ModelInfoを使用）
      */
-    private getFallbackModels(): string[] {
-        return [
-            'Auto Select',
-            'Fallback Model (Mock)',
-            'GPT-4 (Not Available)',
-            'Claude (Not Available)',
-            'Gemini (Not Available)'
-        ];
+    private formatModelName(model: ModelInfo): string {
+        const name = model.name;
+        const vendor = model.vendor;
+        const status = model.isAvailable ? '' : ' (Not Available)';
+        const maxTokens = model.maxInputTokens ? ` (${model.maxInputTokens.toLocaleString()} tokens)` : '';
+        
+        return `${name} (${vendor})${maxTokens}${status}`;
     }
 
     /**
-     * モデル名をフォーマット
+     * モデル名をフォーマット（VS Code APIモデルを使用）
      */
-    private formatModelName(model: vscode.LanguageModelChat): string {
+    private formatVSCodeModelName(model: vscode.LanguageModelChat): string {
         const name = model.name || model.id;
         const vendor = model.vendor || 'Unknown';
-        const maxTokens = model.maxInputTokens ? ` (${model.maxInputTokens} tokens)` : '';
+        const maxTokens = model.maxInputTokens ? ` (${model.maxInputTokens.toLocaleString()} tokens)` : '';
         
         return `${name} (${vendor})${maxTokens}`;
     }
@@ -319,27 +304,16 @@ export class LLMAPIWrapper {
     /**
      * モデルの詳細情報を取得
      */
-    async getModelInfo(modelId?: string): Promise<{
-        id: string;
-        name: string;
-        vendor: string;
-        maxInputTokens: number;
-        isAvailable: boolean;
-        description?: string;
-        capabilities?: string[];
-    }[]> {
+    async getModelInfo(modelId?: string): Promise<ModelInfo[]> {
         try {
-            const models = await vscode.lm.selectChatModels();
+            await this.modelSelectionManager.updateAvailableModels();
             
-            return models.map(model => ({
-                id: model.id,
-                name: model.name,
-                vendor: model.vendor,
-                maxInputTokens: model.maxInputTokens,
-                isAvailable: true,
-                description: `${model.name} by ${model.vendor}`,
-                capabilities: this.getModelCapabilities(model)
-            }));
+            if (modelId) {
+                const model = this.modelSelectionManager.getModelInfo(modelId);
+                return model ? [model] : [];
+            }
+            
+            return this.modelSelectionManager.getAllModels();
             
         } catch (error) {
             this.loggingService.error(`Failed to get model info: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -357,35 +331,6 @@ export class LLMAPIWrapper {
                 }
             ];
         }
-    }
-
-    /**
-     * モデルの機能を取得
-     */
-    private getModelCapabilities(model: vscode.LanguageModelChat): string[] {
-        const capabilities: string[] = ['text-generation', 'conversation'];
-        
-        // モデル名やベンダーから機能を推測
-        const modelName = model.name.toLowerCase();
-        const vendor = model.vendor.toLowerCase();
-        
-        if (modelName.includes('gpt') || vendor.includes('openai')) {
-            capabilities.push('code-generation', 'analysis', 'debugging');
-        }
-        
-        if (modelName.includes('claude') || vendor.includes('anthropic')) {
-            capabilities.push('reasoning', 'analysis', 'code-review');
-        }
-        
-        if (modelName.includes('gemini') || vendor.includes('google')) {
-            capabilities.push('multimodal', 'reasoning', 'code-analysis');
-        }
-        
-        if (model.maxInputTokens > 8000) {
-            capabilities.push('long-context');
-        }
-        
-        return capabilities;
     }
 
     /**
