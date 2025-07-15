@@ -264,6 +264,84 @@ ${element.endTime ? `**End Time:** ${element.endTime.toLocaleString()}` : ''}
     }
 
     /**
+     * プロジェクト構造を取得
+     */
+    async getProjectStructure(): Promise<any> {
+        try {
+            return await this.ipcService.getProjectStructure();
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`Failed to get project structure: ${errorMessage}`);
+            throw error;
+        }
+    }
+
+    /**
+     * ファイルシステム操作を実行
+     */
+    async executeFileOperation(operation: any): Promise<any> {
+        try {
+            return await this.ipcService.executeFileOperation(operation);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`File operation failed: ${errorMessage}`);
+            throw error;
+        }
+    }
+
+    /**
+     * ターミナル操作を実行
+     */
+    async executeTerminalOperation(operation: any): Promise<any> {
+        try {
+            return await this.ipcService.executeTerminalOperation(operation);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`Terminal operation failed: ${errorMessage}`);
+            throw error;
+        }
+    }
+
+    /**
+     * ワークスペース操作を実行
+     */
+    async executeWorkspaceOperation(operation: any): Promise<any> {
+        try {
+            return await this.ipcService.executeWorkspaceOperation(operation);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`Workspace operation failed: ${errorMessage}`);
+            throw error;
+        }
+    }
+
+    /**
+     * エディタ操作を実行
+     */
+    async executeEditorOperation(operation: any): Promise<any> {
+        try {
+            return await this.ipcService.executeEditorOperation(operation);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`Editor operation failed: ${errorMessage}`);
+            throw error;
+        }
+    }
+
+    /**
+     * 通知操作を実行
+     */
+    async executeNotificationOperation(operation: any): Promise<any> {
+        try {
+            return await this.ipcService.executeNotificationOperation(operation);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`Notification operation failed: ${errorMessage}`);
+            throw error;
+        }
+    }
+
+    /**
      * リソースの解放
      */
     dispose(): void {

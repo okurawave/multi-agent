@@ -8,6 +8,7 @@ import { LoggingService } from '../services/LoggingService';
 import { ConfigurationService } from '../services/ConfigurationService';
 import { EnhancedPythonProcessManager } from '../services/EnhancedPythonProcessManager';
 import { LLMAPIWrapper, LLMRequest, LLMResponse } from '../services/LLMAPIWrapper';
+import { VSCodeAPIBridge, FileOperation, TerminalOperation, WorkspaceOperation, EditorOperation, NotificationOperation } from '../services/VSCodeAPIBridge';
 import { 
     IPCMessageType, 
     TaskProgressNotification,
@@ -30,6 +31,7 @@ export interface TaskInfo {
 export class IPCService {
     private processManager: EnhancedPythonProcessManager;
     private llmWrapper: LLMAPIWrapper;
+    private vscodeAPIBridge: VSCodeAPIBridge;
     private tasks: Map<string, TaskInfo> = new Map();
     private eventListeners: { [event: string]: Function[] } = {};
 
@@ -43,6 +45,7 @@ export class IPCService {
         );
         
         this.llmWrapper = new LLMAPIWrapper(loggingService);
+        this.vscodeAPIBridge = new VSCodeAPIBridge(loggingService);
 
         this.setupEventHandlers();
     }
@@ -328,11 +331,13 @@ export class IPCService {
     getStatistics(): any {
         const processStats = this.processManager.getStatistics();
         const llmStats = this.llmWrapper.getStatistics();
+        const vscodeStats = this.vscodeAPIBridge.getStatistics();
         const taskStats = this.getTaskStatistics();
         
         return {
             ...processStats,
             llm: llmStats,
+            vscode: vscodeStats,
             tasks: taskStats
         };
     }
@@ -461,8 +466,111 @@ export class IPCService {
      * リソースの解放
      */
     async dispose(): Promise<void> {
-        await this.processManager.dispose();
-        this.tasks.clear();
-        this.eventListeners = {};
+        try {
+            // VSCodeAPIBridgeのターミナルを閉じる
+            await this.vscodeAPIBridge.disposeAllTerminals();
+            
+            // Pythonプロセスを終了
+            await this.processManager.dispose();
+            
+            // タスクをクリア
+            this.tasks.clear();
+            
+            // イベントリスナーをクリア
+            this.eventListeners = {};
+            
+            this.loggingService.info('IPCService disposed successfully');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`Error disposing IPCService: ${errorMessage}`);
+        }
+    }
+
+    /**
+     * ファイルシステム操作を実行
+     */
+    async executeFileOperation(operation: FileOperation): Promise<any> {
+        try {
+            const result = await this.vscodeAPIBridge.executeFileOperation(operation);
+            this.loggingService.debug(`File operation completed: ${operation.type}`);
+            return result;
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`File operation failed: ${errorMessage}`);
+            throw error;
+        }
+    }
+
+    /**
+     * ターミナル操作を実行
+     */
+    async executeTerminalOperation(operation: TerminalOperation): Promise<any> {
+        try {
+            const result = await this.vscodeAPIBridge.executeTerminalOperation(operation);
+            this.loggingService.debug(`Terminal operation completed: ${operation.type}`);
+            return result;
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`Terminal operation failed: ${errorMessage}`);
+            throw error;
+        }
+    }
+
+    /**
+     * ワークスペース操作を実行
+     */
+    async executeWorkspaceOperation(operation: WorkspaceOperation): Promise<any> {
+        try {
+            const result = await this.vscodeAPIBridge.executeWorkspaceOperation(operation);
+            this.loggingService.debug(`Workspace operation completed: ${operation.type}`);
+            return result;
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`Workspace operation failed: ${errorMessage}`);
+            throw error;
+        }
+    }
+
+    /**
+     * エディタ操作を実行
+     */
+    async executeEditorOperation(operation: EditorOperation): Promise<any> {
+        try {
+            const result = await this.vscodeAPIBridge.executeEditorOperation(operation);
+            this.loggingService.debug(`Editor operation completed: ${operation.type}`);
+            return result;
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`Editor operation failed: ${errorMessage}`);
+            throw error;
+        }
+    }
+
+    /**
+     * 通知操作を実行
+     */
+    async executeNotificationOperation(operation: NotificationOperation): Promise<any> {
+        try {
+            const result = await this.vscodeAPIBridge.executeNotificationOperation(operation);
+            this.loggingService.debug(`Notification operation completed: ${operation.type}`);
+            return result;
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`Notification operation failed: ${errorMessage}`);
+            throw error;
+        }
+    }
+
+    /**
+     * プロジェクト構造を取得
+     */
+    async getProjectStructure(): Promise<any> {
+        try {
+            return await this.vscodeAPIBridge.getProjectStructure();
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`Failed to get project structure: ${errorMessage}`);
+            throw error;
+        }
     }
 }

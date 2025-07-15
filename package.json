@@ -72,6 +72,24 @@
         "title": "Quick Start Task",
         "category": "CrewAI",
         "icon": "$(plus)"
+      },
+      {
+        "command": "crewai-connect.showProjectStructure",
+        "title": "Show Project Structure",
+        "category": "CrewAI",
+        "icon": "$(file-directory)"
+      },
+      {
+        "command": "crewai-connect.openTerminal",
+        "title": "Open Terminal",
+        "category": "CrewAI",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "crewai-connect.createFile",
+        "title": "Create File",
+        "category": "CrewAI",
+        "icon": "$(new-file)"
       }
     ],
     "viewsContainers": {
@@ -122,6 +140,21 @@
         },
         {
           "command": "crewai-connect.clearCompleted",
+          "when": "view == crewai-connect.sidebar",
+          "group": "navigation"
+        },
+        {
+          "command": "crewai-connect.showProjectStructure",
+          "when": "view == crewai-connect.sidebar",
+          "group": "navigation"
+        },
+        {
+          "command": "crewai-connect.openTerminal",
+          "when": "view == crewai-connect.sidebar",
+          "group": "navigation"
+        },
+        {
+          "command": "crewai-connect.createFile",
           "when": "view == crewai-connect.sidebar",
           "group": "navigation"
         }

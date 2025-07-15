@@ -80,6 +80,25 @@ export class SidebarUIManager {
                 this.quickStartTask();
             })
         );
+
+        // VS Code API連携のコマンドを追加
+        this.context.subscriptions.push(
+            vscode.commands.registerCommand('crewai-connect.showProjectStructure', async () => {
+                await this.showProjectStructure();
+            })
+        );
+
+        this.context.subscriptions.push(
+            vscode.commands.registerCommand('crewai-connect.openTerminal', async () => {
+                await this.openTerminal();
+            })
+        );
+
+        this.context.subscriptions.push(
+            vscode.commands.registerCommand('crewai-connect.createFile', async () => {
+                await this.createFile();
+            })
+        );
     }
 
     /**
@@ -327,6 +346,89 @@ export class SidebarUIManager {
                 const errorMessage = error instanceof Error ? error.message : 'Unknown error';
                 vscode.window.showErrorMessage(`Failed to start task: ${errorMessage}`);
             }
+        }
+    }
+
+    /**
+     * プロジェクト構造を表示
+     */
+    private async showProjectStructure(): Promise<void> {
+        try {
+            const structure = await this.crewAIProvider.getProjectStructure();
+            
+            if (structure) {
+                const structureString = JSON.stringify(structure, null, 2);
+                
+                // 新しいエディタでプロジェクト構造を表示
+                const document = await vscode.workspace.openTextDocument({
+                    content: structureString,
+                    language: 'json'
+                });
+                
+                await vscode.window.showTextDocument(document);
+                
+                vscode.window.showInformationMessage('Project structure displayed');
+            } else {
+                vscode.window.showWarningMessage('No workspace folder found');
+            }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`Failed to show project structure: ${errorMessage}`);
+            vscode.window.showErrorMessage(`Failed to show project structure: ${errorMessage}`);
+        }
+    }
+
+    /**
+     * ターミナルを開く
+     */
+    private async openTerminal(): Promise<void> {
+        try {
+            const terminalId = await this.crewAIProvider.executeTerminalOperation({
+                type: 'execute',
+                command: 'echo "CrewAI Connect Terminal Ready"'
+            });
+            
+            vscode.window.showInformationMessage(`Terminal opened: ${terminalId}`);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`Failed to open terminal: ${errorMessage}`);
+            vscode.window.showErrorMessage(`Failed to open terminal: ${errorMessage}`);
+        }
+    }
+
+    /**
+     * ファイルを作成
+     */
+    private async createFile(): Promise<void> {
+        try {
+            const fileName = await vscode.window.showInputBox({
+                prompt: 'Enter file name',
+                placeHolder: 'example.txt'
+            });
+            
+            if (!fileName) {
+                return;
+            }
+            
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (!workspaceFolder) {
+                vscode.window.showErrorMessage('No workspace folder found');
+                return;
+            }
+            
+            const filePath = vscode.Uri.joinPath(workspaceFolder.uri, fileName).fsPath;
+            
+            await this.crewAIProvider.executeFileOperation({
+                type: 'create',
+                filePath: filePath,
+                content: '// Created by CrewAI Connect\n'
+            });
+            
+            vscode.window.showInformationMessage(`File created: ${fileName}`);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`Failed to create file: ${errorMessage}`);
+            vscode.window.showErrorMessage(`Failed to create file: ${errorMessage}`);
         }
     }
 
