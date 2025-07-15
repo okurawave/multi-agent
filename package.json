@@ -1,0 +1,126 @@
+{
+  "name": "crewai-connect",
+  "displayName": "CrewAI Connect for VS Code",
+  "description": "AIクルーによる自律型ソフトウェア開発プラットフォーム",
+  "version": "0.1.0",
+  "publisher": "crewai-team",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/crewai-team/crewai-connect-vscode"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "AI",
+    "Other"
+  ],
+  "keywords": [
+    "ai",
+    "crewai",
+    "automation",
+    "development",
+    "assistant"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "crewai-connect.openChat",
+        "title": "Start New Task",
+        "category": "CrewAI"
+      },
+      {
+        "command": "crewai-connect.stopAllTasks",
+        "title": "Stop All Tasks",
+        "category": "CrewAI"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "crewai-connect",
+          "title": "CrewAI Connect",
+          "icon": "$(robot)"
+        }
+      ]
+    },
+    "views": {
+      "crewai-connect": [
+        {
+          "id": "crewai-connect.sidebar",
+          "name": "AI Crew Status",
+          "when": "true"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "crewai-connect.openChat",
+          "when": "view == crewai-connect.sidebar",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "CrewAI Connect",
+      "properties": {
+        "crewai-connect.pythonPath": {
+          "type": "string",
+          "default": "python",
+          "description": "Path to Python executable"
+        },
+        "crewai-connect.logLevel": {
+          "type": "string",
+          "enum": [
+            "debug",
+            "info",
+            "warning",
+            "error"
+          ],
+          "default": "info",
+          "description": "Logging level"
+        },
+        "crewai-connect.maxConcurrentTasks": {
+          "type": "number",
+          "default": 3,
+          "description": "Maximum number of concurrent AI tasks"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "18.x",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3",
+    "ts-loader": "^9.5.1",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4",
+    "@vscode/test-electron": "^2.3.8",
+    "@vscode/vsce": "^2.22.0",
+    "mocha": "^10.2.0",
+    "glob": "^10.3.10"
+  },
+  "dependencies": {
+    "uuid": "^9.0.1"
+  }
+}
