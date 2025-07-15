@@ -109,36 +109,60 @@ export class LLMAPIWrapper {
      * モデルを選択
      */
     private selectModel(models: readonly vscode.LanguageModelChat[], preferredModel?: string): vscode.LanguageModelChat {
-        if (preferredModel) {
+        if (preferredModel && preferredModel !== 'auto' && preferredModel !== 'Auto Select') {
+            // 名前、ID、またはベンダーで検索
             const preferred = models.find(m => 
-                m.id.includes(preferredModel) || 
-                m.name.toLowerCase().includes(preferredModel.toLowerCase())
+                m.id.toLowerCase().includes(preferredModel.toLowerCase()) ||
+                m.name.toLowerCase().includes(preferredModel.toLowerCase()) ||
+                m.vendor.toLowerCase().includes(preferredModel.toLowerCase()) ||
+                this.formatModelName(m).toLowerCase().includes(preferredModel.toLowerCase())
             );
+            
             if (preferred) {
+                this.loggingService.info(`Selected preferred model: ${this.formatModelName(preferred)}`);
                 return preferred;
             }
         }
         
-        // GPT-4系モデルを優先
-        const gpt4Model = models.find(m => 
-            m.id.includes('gpt-4') || 
-            m.name.toLowerCase().includes('gpt-4')
-        );
-        if (gpt4Model) {
-            return gpt4Model;
+        // 自動選択の場合は品質順に選択
+        const modelPriority = [
+            // GPT-4系を最優先
+            (m: vscode.LanguageModelChat) => m.name.toLowerCase().includes('gpt-4') && !m.name.toLowerCase().includes('preview'),
+            (m: vscode.LanguageModelChat) => m.name.toLowerCase().includes('gpt-4'),
+            // Claude系
+            (m: vscode.LanguageModelChat) => m.name.toLowerCase().includes('claude') && m.name.toLowerCase().includes('sonnet'),
+            (m: vscode.LanguageModelChat) => m.name.toLowerCase().includes('claude'),
+            // Gemini系
+            (m: vscode.LanguageModelChat) => m.name.toLowerCase().includes('gemini') && m.name.toLowerCase().includes('pro'),
+            (m: vscode.LanguageModelChat) => m.name.toLowerCase().includes('gemini'),
+            // GPT-3.5系
+            (m: vscode.LanguageModelChat) => m.name.toLowerCase().includes('gpt-3.5') && m.name.toLowerCase().includes('turbo'),
+            (m: vscode.LanguageModelChat) => m.name.toLowerCase().includes('gpt-3.5'),
+            // その他のOpenAIモデル
+            (m: vscode.LanguageModelChat) => m.vendor.toLowerCase().includes('openai'),
+            // その他のAnthropic
+            (m: vscode.LanguageModelChat) => m.vendor.toLowerCase().includes('anthropic'),
+            // その他のGoogle
+            (m: vscode.LanguageModelChat) => m.vendor.toLowerCase().includes('google'),
+            // 大きなコンテキスト窓を持つモデル
+            (m: vscode.LanguageModelChat) => m.maxInputTokens > 16000,
+            (m: vscode.LanguageModelChat) => m.maxInputTokens > 8000,
+            // 最後の手段：最初のモデル
+            () => true
+        ];
+        
+        for (const priority of modelPriority) {
+            const selectedModel = models.find(priority);
+            if (selectedModel) {
+                this.loggingService.info(`Auto-selected model: ${this.formatModelName(selectedModel)}`);
+                return selectedModel;
+            }
         }
         
-        // Claude系モデルを次に優先
-        const claudeModel = models.find(m => 
-            m.id.includes('claude') || 
-            m.name.toLowerCase().includes('claude')
-        );
-        if (claudeModel) {
-            return claudeModel;
-        }
-        
-        // 最初の利用可能なモデルを使用
-        return models[0];
+        // フォールバック：最初のモデル
+        const fallbackModel = models[0];
+        this.loggingService.info(`Fallback to first available model: ${this.formatModelName(fallbackModel)}`);
+        return fallbackModel;
     }
 
     /**
@@ -235,17 +259,42 @@ export class LLMAPIWrapper {
      */
     async getAvailableModels(): Promise<string[]> {
         try {
+            // VS Code Language Model APIから利用可能なモデルを取得
             const models = await vscode.lm.selectChatModels();
-            return models.map(m => ({
-                id: m.id,
-                name: m.name,
-                vendor: m.vendor,
-                maxInputTokens: m.maxInputTokens
-            })).map(m => `${m.name} (${m.vendor})`);
+            const modelNames = models.map(model => {
+                // モデル名を適切にフォーマット
+                return this.formatModelName(model);
+            });
+            
+            // Auto Selectを先頭に追加
+            const availableModels = ['Auto Select', ...modelNames];
+            
+            this.loggingService.info(`Available models: ${availableModels.join(', ')}`);
+            return availableModels;
+            
         } catch (error) {
-            this.loggingService.warn('Failed to get available models, using fallback');
-            return ['Fallback Model (Mock)'];
+            this.loggingService.warn('VS Code Language Model API not available, using fallback models');
+            
+            // フォールバック用の基本モデルリスト
+            return [
+                'Auto Select',
+                'Fallback Model (Mock)',
+                'GPT-4 (Not Available)',
+                'Claude (Not Available)',
+                'Gemini (Not Available)'
+            ];
         }
+    }
+
+    /**
+     * モデル名をフォーマット
+     */
+    private formatModelName(model: vscode.LanguageModelChat): string {
+        const name = model.name || model.id;
+        const vendor = model.vendor || 'Unknown';
+        const maxTokens = model.maxInputTokens ? ` (${model.maxInputTokens} tokens)` : '';
+        
+        return `${name} (${vendor})${maxTokens}`;
     }
 
     /**
@@ -257,40 +306,67 @@ export class LLMAPIWrapper {
         vendor: string;
         maxInputTokens: number;
         isAvailable: boolean;
-    } | null> {
+        description?: string;
+        capabilities?: string[];
+    }[]> {
         try {
             const models = await vscode.lm.selectChatModels();
             
-            if (modelId) {
-                const model = models.find(m => m.id === modelId || m.name === modelId);
-                if (model) {
-                    return {
-                        id: model.id,
-                        name: model.name,
-                        vendor: model.vendor,
-                        maxInputTokens: model.maxInputTokens,
-                        isAvailable: true
-                    };
-                }
-            }
+            return models.map(model => ({
+                id: model.id,
+                name: model.name,
+                vendor: model.vendor,
+                maxInputTokens: model.maxInputTokens,
+                isAvailable: true,
+                description: `${model.name} by ${model.vendor}`,
+                capabilities: this.getModelCapabilities(model)
+            }));
             
-            // デフォルトモデルの情報を返す
-            if (models.length > 0) {
-                const defaultModel = models[0];
-                return {
-                    id: defaultModel.id,
-                    name: defaultModel.name,
-                    vendor: defaultModel.vendor,
-                    maxInputTokens: defaultModel.maxInputTokens,
-                    isAvailable: true
-                };
-            }
-            
-            return null;
         } catch (error) {
             this.loggingService.error(`Failed to get model info: ${error instanceof Error ? error.message : 'Unknown error'}`);
-            return null;
+            
+            // フォールバック用のモデル情報
+            return [
+                {
+                    id: 'fallback',
+                    name: 'Fallback Model',
+                    vendor: 'Mock',
+                    maxInputTokens: 4000,
+                    isAvailable: false,
+                    description: 'Mock model for testing purposes',
+                    capabilities: ['text-generation', 'conversation']
+                }
+            ];
         }
+    }
+
+    /**
+     * モデルの機能を取得
+     */
+    private getModelCapabilities(model: vscode.LanguageModelChat): string[] {
+        const capabilities: string[] = ['text-generation', 'conversation'];
+        
+        // モデル名やベンダーから機能を推測
+        const modelName = model.name.toLowerCase();
+        const vendor = model.vendor.toLowerCase();
+        
+        if (modelName.includes('gpt') || vendor.includes('openai')) {
+            capabilities.push('code-generation', 'analysis', 'debugging');
+        }
+        
+        if (modelName.includes('claude') || vendor.includes('anthropic')) {
+            capabilities.push('reasoning', 'analysis', 'code-review');
+        }
+        
+        if (modelName.includes('gemini') || vendor.includes('google')) {
+            capabilities.push('multimodal', 'reasoning', 'code-analysis');
+        }
+        
+        if (model.maxInputTokens > 8000) {
+            capabilities.push('long-context');
+        }
+        
+        return capabilities;
     }
 
     /**

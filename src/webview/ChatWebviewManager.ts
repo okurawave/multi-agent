@@ -632,10 +632,6 @@ Please try again, or check the extension logs for more details.`
                 <label for="modelSelect">Model:</label>
                 <select id="modelSelect" onchange="onModelChange()">
                     <option value="auto">Auto Select</option>
-                    <option value="gpt-4">GPT-4</option>
-                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                    <option value="claude">Claude</option>
-                    <option value="fallback">Fallback</option>
                 </select>
             </div>
             <button class="btn secondary" onclick="clearChat()">Clear Chat</button>
@@ -752,25 +748,47 @@ Please try again, or check the extension logs for more details.`
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
-        function updateAvailableModels(models) {
+        function updateAvailableModels(models, modelInfos) {
             const modelSelect = document.getElementById('modelSelect');
             const currentValue = modelSelect.value;
             
-            // 既存のオプションをクリア（Auto Selectは残す）
-            while (modelSelect.children.length > 1) {
-                modelSelect.removeChild(modelSelect.lastChild);
-            }
+            // 既存のオプションをクリア
+            modelSelect.innerHTML = '';
+            
+            // Auto Selectを追加
+            const autoOption = document.createElement('option');
+            autoOption.value = 'auto';
+            autoOption.textContent = 'Auto Select';
+            modelSelect.appendChild(autoOption);
             
             // 利用可能なモデルを追加
-            models.forEach(model => {
-                const option = document.createElement('option');
-                option.value = model.toLowerCase().replace(/\s+/g, '-');
-                option.textContent = model;
-                modelSelect.appendChild(option);
+            models.forEach((model, index) => {
+                if (model !== 'Auto Select') {
+                    const option = document.createElement('option');
+                    option.value = model.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
+                    option.textContent = model;
+                    
+                    // モデル情報からツールチップを作成
+                    if (modelInfos && modelInfos[index - 1]) {
+                        const info = modelInfos[index - 1];
+                        option.title = 'Vendor: ' + info.vendor + 
+                                      ', Max Tokens: ' + info.maxInputTokens + 
+                                      ', Available: ' + (info.isAvailable ? 'Yes' : 'No');
+                    }
+                    
+                    modelSelect.appendChild(option);
+                }
             });
             
             // 以前の選択を復元
-            modelSelect.value = currentValue;
+            if (currentValue) {
+                modelSelect.value = currentValue;
+            }
+            
+            // モデル情報が変更されたことを通知
+            if (models.length > 1) {
+                addSystemMessage('Available models updated: ' + (models.length - 1) + ' models found');
+            }
         }
 
         function formatMessageContent(content) {
@@ -868,7 +886,7 @@ Please try again, or check the extension logs for more details.`
                     clearMessages();
                     break;
                 case 'updateModels':
-                    updateAvailableModels(data.models);
+                    updateAvailableModels(data.models, data.modelInfos);
                     break;
                     break;
                 case 'refreshMessages':
@@ -896,13 +914,17 @@ Please try again, or check the extension logs for more details.`
     private async updateAvailableModels(): Promise<void> {
         try {
             const models = await this.ipcService.getAvailableLLMModels();
+            const modelInfos = await this.ipcService.getLLMModelInfo();
             
             if (this.panel) {
                 this.panel.webview.postMessage({
                     type: 'updateModels',
-                    models: models
+                    models: models,
+                    modelInfos: modelInfos
                 });
             }
+            
+            this.loggingService.info(`Updated available models: ${models.length} models found`);
         } catch (error) {
             this.loggingService.error(`Failed to update available models: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }

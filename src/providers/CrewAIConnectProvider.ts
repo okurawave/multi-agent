@@ -342,6 +342,32 @@ ${element.endTime ? `**End Time:** ${element.endTime.toLocaleString()}` : ''}
     }
 
     /**
+     * 利用可能なLLMモデルを取得
+     */
+    async getAvailableLLMModels(): Promise<string[]> {
+        try {
+            return await this.ipcService.getAvailableLLMModels();
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`Failed to get available LLM models: ${errorMessage}`);
+            return [];
+        }
+    }
+
+    /**
+     * LLMモデル情報を取得
+     */
+    async getLLMModelInfo(modelId?: string): Promise<any> {
+        try {
+            return await this.ipcService.getLLMModelInfo(modelId);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`Failed to get LLM model info: ${errorMessage}`);
+            return null;
+        }
+    }
+
+    /**
      * リソースの解放
      */
     dispose(): void {

@@ -282,7 +282,7 @@ export class IPCService {
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             this.loggingService.error(`Failed to get LLM model info: ${errorMessage}`);
-            return null;
+            return [];
         }
     }
 

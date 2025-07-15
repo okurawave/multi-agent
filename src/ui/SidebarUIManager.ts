@@ -99,6 +99,12 @@ export class SidebarUIManager {
                 await this.createFile();
             })
         );
+
+        this.context.subscriptions.push(
+            vscode.commands.registerCommand('crewai-connect.showModelInfo', async () => {
+                await this.showModelInfo();
+            })
+        );
     }
 
     /**
@@ -429,6 +435,45 @@ export class SidebarUIManager {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             this.loggingService.error(`Failed to create file: ${errorMessage}`);
             vscode.window.showErrorMessage(`Failed to create file: ${errorMessage}`);
+        }
+    }
+
+    /**
+     * モデル情報を表示
+     */
+    private async showModelInfo(): Promise<void> {
+        try {
+            const modelInfos = await this.crewAIProvider.executeNotificationOperation({
+                type: 'info',
+                message: 'Fetching model information...'
+            });
+            
+            const models = await this.crewAIProvider.getAvailableLLMModels();
+            const infos = await this.crewAIProvider.getLLMModelInfo();
+            
+            if (infos && infos.length > 0) {
+                const infoString = infos.map((info: any) => 
+                    `**${info.name}** (${info.vendor})\n` +
+                    `  - ID: ${info.id}\n` +
+                    `  - Max Tokens: ${info.maxInputTokens}\n` +
+                    `  - Available: ${info.isAvailable ? 'Yes' : 'No'}\n` +
+                    `  - Capabilities: ${info.capabilities?.join(', ') || 'Unknown'}\n`
+                ).join('\n');
+                
+                const document = await vscode.workspace.openTextDocument({
+                    content: `# Available Language Models\n\n${infoString}`,
+                    language: 'markdown'
+                });
+                
+                await vscode.window.showTextDocument(document);
+                vscode.window.showInformationMessage(`Found ${infos.length} available models`);
+            } else {
+                vscode.window.showWarningMessage('No model information available');
+            }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.loggingService.error(`Failed to show model info: ${errorMessage}`);
+            vscode.window.showErrorMessage(`Failed to show model info: ${errorMessage}`);
         }
     }
 

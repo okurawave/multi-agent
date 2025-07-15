@@ -90,6 +90,12 @@
         "title": "Create File",
         "category": "CrewAI",
         "icon": "$(new-file)"
+      },
+      {
+        "command": "crewai-connect.showModelInfo",
+        "title": "Show Model Info",
+        "category": "CrewAI",
+        "icon": "$(info)"
       }
     ],
     "viewsContainers": {
@@ -155,6 +161,11 @@
         },
         {
           "command": "crewai-connect.createFile",
+          "when": "view == crewai-connect.sidebar",
+          "group": "navigation"
+        },
+        {
+          "command": "crewai-connect.showModelInfo",
           "when": "view == crewai-connect.sidebar",
           "group": "navigation"
         }
