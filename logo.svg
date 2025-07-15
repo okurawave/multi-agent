@@ -1,0 +1,11 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <rect width="128" height="128" rx="20" fill="#1E1E1E"></rect>
+  <circle cx="40" cy="40" r="18" stroke="#61dafb" stroke-width="4" fill="none"></circle>
+  <circle cx="88" cy="40" r="18" stroke="#ffa500" stroke-width="4" fill="none"></circle>
+  <circle cx="64" cy="88" r="18" stroke="#00ff88" stroke-width="4" fill="none"></circle>
+  <line x1="47" y1="53" x2="64" y2="74" stroke="#ccc" stroke-width="2"></line>
+  <line x1="81" y1="53" x2="64" y2="74" stroke="#ccc" stroke-width="2"></line>
+  <text x="64" y="122" font-size="12" fill="#ffffff" font-family="Segoe UI, sans-serif" text-anchor="middle">
+    Multi-Agent
+  </text>
+</svg>

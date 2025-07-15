@@ -1,12 +1,12 @@
 import * as vscode from 'vscode';
 import { CrewAIConnectProvider } from './providers/CrewAIConnectProvider';
-import { PythonProcessManager } from './services/PythonProcessManager';
+import { IPCService } from './services/IPCService';
 import { LoggingService } from './services/LoggingService';
 import { ConfigurationService } from './services/ConfigurationService';
 import { SidebarUIManager } from './ui/SidebarUIManager';
 
 let crewAIProvider: CrewAIConnectProvider;
-let pythonProcessManager: PythonProcessManager;
+let ipcService: IPCService;
 let loggingService: LoggingService;
 let configurationService: ConfigurationService;
 let sidebarUIManager: SidebarUIManager;
@@ -20,13 +20,13 @@ export async function activate(context: vscode.ExtensionContext) {
         // 設定サービスの初期化
         configurationService = new ConfigurationService();
 
-        // Pythonプロセスマネージャーの初期化
-        pythonProcessManager = new PythonProcessManager(configurationService, loggingService);
+        // IPCサービスの初期化
+        ipcService = new IPCService(loggingService, configurationService);
 
         // CrewAIプロバイダーの初期化
         crewAIProvider = new CrewAIConnectProvider(
             context,
-            pythonProcessManager,
+            ipcService,
             loggingService,
             configurationService
         );
@@ -130,9 +130,9 @@ export async function deactivate() {
             crewAIProvider.dispose();
         }
         
-        // Pythonプロセスを終了
-        if (pythonProcessManager) {
-            await pythonProcessManager.dispose();
+        // IPCサービスを終了
+        if (ipcService) {
+            await ipcService.dispose();
         }
 
         // サイドバーUIマネージャーを終了

@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { PythonProcessManager } from '../services/PythonProcessManager';
+import { IPCService } from '../services/IPCService';
 import { LoggingService } from '../services/LoggingService';
 import { ConfigurationService } from '../services/ConfigurationService';
 import { ChatWebviewManager } from '../webview/ChatWebviewManager';
@@ -29,7 +30,7 @@ export class CrewAIConnectProvider implements vscode.TreeDataProvider<TaskStatus
 
     constructor(
         private context: vscode.ExtensionContext,
-        private pythonProcessManager: PythonProcessManager,
+        private ipcService: IPCService,
         private loggingService: LoggingService,
         private configurationService: ConfigurationService
     ) {
@@ -38,7 +39,7 @@ export class CrewAIConnectProvider implements vscode.TreeDataProvider<TaskStatus
             context,
             loggingService,
             this,
-            pythonProcessManager
+            ipcService
         );
     }
 
@@ -131,11 +132,8 @@ ${element.endTime ? `**End Time:** ${element.endTime.toLocaleString()}` : ''}
         this.refresh();
 
         try {
-            // Pythonプロセスにタスク開始を通知
-            await this.pythonProcessManager.sendRequest('start_task', {
-                task_id: taskId,
-                description
-            });
+            // IPCサービスにタスク開始を通知
+            await this.ipcService.startTask(description);
 
             this.loggingService.info(`Task started: ${taskId} - ${description}`);
             return taskId;
@@ -162,10 +160,8 @@ ${element.endTime ? `**End Time:** ${element.endTime.toLocaleString()}` : ''}
         }
 
         try {
-            // Pythonプロセスにタスク停止を通知
-            await this.pythonProcessManager.sendRequest('stop_task', {
-                task_id: taskId
-            });
+            // IPCサービスにタスク停止を通知
+            await this.ipcService.stopTask(taskId);
 
             // タスクを停止状態に更新
             task.status = 'stopped';

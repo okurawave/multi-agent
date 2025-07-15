@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { LoggingService } from '../services/LoggingService';
 import { CrewAIConnectProvider } from '../providers/CrewAIConnectProvider';
-import { PythonProcessManager } from '../services/PythonProcessManager';
+import { IPCService } from '../services/IPCService';
 
 export interface ChatMessage {
     id: string;
@@ -26,7 +26,7 @@ export class ChatWebviewManager {
         private context: vscode.ExtensionContext,
         private loggingService: LoggingService,
         private crewAIProvider: CrewAIConnectProvider,
-        private pythonProcessManager: PythonProcessManager
+        private ipcService: IPCService
     ) {}
 
     /**
