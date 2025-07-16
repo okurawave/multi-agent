@@ -7,10 +7,12 @@ import * as vscode from 'vscode';
 import { CrewAIConnectProvider, TaskStatus } from '../providers/CrewAIConnectProvider';
 import { LoggingService } from '../services/LoggingService';
 import { ConfigurationService } from '../services/ConfigurationService';
+import { SidebarChatManager } from './SidebarChatManager';
 
 export class SidebarUIManager {
     private statusBarItem: vscode.StatusBarItem;
     private taskCountWatcher: vscode.Disposable | undefined;
+    private sidebarChatManager: SidebarChatManager;
 
     constructor(
         private context: vscode.ExtensionContext,
@@ -18,6 +20,14 @@ export class SidebarUIManager {
         private loggingService: LoggingService,
         private configurationService: ConfigurationService
     ) {
+        // SidebarChatManagerの初期化
+        this.sidebarChatManager = new SidebarChatManager(
+            context,
+            loggingService,
+            crewAIProvider,
+            crewAIProvider.getIPCService()
+        );
+        
         // ステータスバーアイテムの作成
         this.statusBarItem = vscode.window.createStatusBarItem(
             vscode.StatusBarAlignment.Left,
@@ -534,6 +544,13 @@ export class SidebarUIManager {
     updateProgress(taskId: string, progress: number): void {
         this.crewAIProvider.updateTaskStatus(taskId, 'running', progress);
         this.updateStatusBar();
+    }
+
+    /**
+     * SidebarChatManagerを取得
+     */
+    getSidebarChatManager(): SidebarChatManager {
+        return this.sidebarChatManager;
     }
 
     /**

@@ -116,10 +116,10 @@
     "views": {
       "crewai-connect": [
         {
+          "type": "webview",
           "id": "crewai-connect.sidebar",
-          "name": "AI Crew Status",
-          "when": "true",
-          "icon": "icon.svg"
+          "name": "AI Chat",
+          "when": "true"
         }
       ]
     },

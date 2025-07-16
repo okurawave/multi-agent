@@ -42,6 +42,12 @@ export async function activate(context: vscode.ExtensionContext) {
         // サイドバープロバイダーの登録
         vscode.window.registerTreeDataProvider('crewai-connect.sidebar', crewAIProvider);
 
+        // WebviewViewプロバイダーの登録
+        vscode.window.registerWebviewViewProvider(
+            'crewai-connect.sidebar',
+            sidebarUIManager.getSidebarChatManager()
+        );
+
         // コマンドの登録
         registerCommands(context);
 
@@ -63,7 +69,12 @@ function registerCommands(context: vscode.ExtensionContext) {
     const openChatCommand = vscode.commands.registerCommand('crewai-connect.openChat', async () => {
         try {
             loggingService.info('Opening CrewAI chat interface...');
-            await crewAIProvider.openChatInterface();
+            // まずアクティビティバーのCrewAI Connectを開く
+            await vscode.commands.executeCommand('workbench.view.extension.crewai-connect');
+            // 少し待ってからサイドバーにフォーカス
+            setTimeout(() => {
+                vscode.commands.executeCommand('crewai-connect.sidebar.focus');
+            }, 100);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             loggingService.error(`Failed to open chat interface: ${errorMessage}`);

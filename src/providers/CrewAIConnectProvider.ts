@@ -384,6 +384,13 @@ ${element.endTime ? `**End Time:** ${element.endTime.toLocaleString()}` : ''}
     }
 
     /**
+     * IPCServiceを取得
+     */
+    getIPCService(): IPCService {
+        return this.ipcService;
+    }
+
+    /**
      * リソースの解放
      */
     dispose(): void {
