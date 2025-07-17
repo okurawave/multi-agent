@@ -30,6 +30,186 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# 必要なモジュールをインポート
+from ipc_handler import IPCHandler
+from crewai_engine import CrewAIEngine
+
+class CrewAIConnectMain:
+    def __init__(self):
+        self.logger = logger
+        self.ipc_handler = IPCHandler()
+        self.engine = None
+        self.running = False
+        
+    def ipc_callback(self, method: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        """IPCコールバック関数"""
+        try:
+            # 非同期でnotificationを送信
+            asyncio.create_task(self.ipc_handler.send_notification(method, params))
+            
+            # 基本的なレスポンスを返す
+            return {
+                "success": True,
+                "method": method,
+                "params": params
+            }
+            
+        except Exception as e:
+            self.logger.error(f"IPC callback error: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    async def initialize(self):
+        """初期化処理"""
+        try:
+            self.logger.info("CrewAI Connect starting initialization...")
+            
+            # IPC通信の初期化
+            await self.ipc_handler.initialize()
+            
+            # CrewAIエンジンの初期化
+            self.engine = CrewAIEngine(self.ipc_callback)
+            await self.engine.initialize()
+            
+            self.logger.info("CrewAI Connect initialization completed")
+            
+        except Exception as e:
+            self.logger.error(f"Initialization failed: {e}")
+            raise
+    
+    async def handle_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
+        """リクエストを処理"""
+        try:
+            method = request.get("method")
+            params = request.get("params", {})
+            request_id = request.get("id")
+            
+            self.logger.debug(f"Handling request: {method}")
+            
+            # メソッドに応じて処理を分岐
+            if method == "start_task":
+                result = await self.engine.start_task(params)
+            elif method == "stop_task":
+                result = await self.engine.stop_task(params)
+            elif method == "get_task_status":
+                result = await self.engine.get_task_status(params)
+            elif method == "list_tasks":
+                result = await self.engine.list_tasks(params)
+            elif method == "llm_request":
+                result = await self.engine.handle_llm_request(params)
+            elif method == "tool_request":
+                result = await self.engine.handle_tool_request(params)
+            elif method == "health_check":
+                result = {
+                    "success": True,
+                    "status": "healthy",
+                    "timestamp": datetime.now().isoformat()
+                }
+            elif method == "shutdown":
+                result = await self.shutdown()
+            else:
+                result = {
+                    "success": False,
+                    "error": f"Unknown method: {method}"
+                }
+            
+            # レスポンスを作成
+            response = {
+                "id": request_id,
+                "result": result.get("data") if result.get("success") else None,
+                "error": result.get("error") if not result.get("success") else None,
+                "timestamp": time.time()
+            }
+            
+            return response
+            
+        except Exception as e:
+            self.logger.error(f"Request handling error: {e}")
+            return {
+                "id": request.get("id"),
+                "result": None,
+                "error": str(e),
+                "timestamp": time.time()
+            }
+    
+    async def shutdown(self) -> Dict[str, Any]:
+        """シャットダウン処理"""
+        try:
+            self.logger.info("CrewAI Connect shutting down...")
+            self.running = False
+            
+            # エンジンを停止
+            if self.engine:
+                await self.engine.dispose()
+            
+            return {
+                "success": True,
+                "message": "CrewAI Connect shutdown completed"
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Shutdown error: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    async def run(self):
+        """メインループ"""
+        try:
+            await self.initialize()
+            self.running = True
+            
+            self.logger.info("CrewAI Connect is running and waiting for requests...")
+            
+            while self.running:
+                try:
+                    # リクエストを受信
+                    request = await self.ipc_handler.receive_request()
+                    
+                    if request is None:
+                        # 少し待機して再試行
+                        await asyncio.sleep(0.1)
+                        continue
+                    
+                    # リクエストを処理
+                    response = await self.handle_request(request)
+                    
+                    # レスポンスを送信
+                    await self.ipc_handler.send_response(response)
+                    
+                except KeyboardInterrupt:
+                    self.logger.info("Received keyboard interrupt")
+                    break
+                except Exception as e:
+                    self.logger.error(f"Error in main loop: {e}")
+                    await asyncio.sleep(1)
+            
+        except Exception as e:
+            self.logger.error(f"Fatal error: {e}")
+            self.logger.error(traceback.format_exc())
+        finally:
+            await self.shutdown()
+
+def main():
+    """メイン関数"""
+    try:
+        # CrewAI Connectを実行
+        app = CrewAIConnectMain()
+        asyncio.run(app.run())
+        
+    except Exception as e:
+        logger.error(f"Application error: {e}")
+        logger.error(traceback.format_exc())
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+
+logger = logging.getLogger(__name__)
+
 class SimpleIPCHandler:
     """シンプルなIPC通信処理クラス（テスト用）"""
     
