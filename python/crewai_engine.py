@@ -14,6 +14,12 @@ import time
 
 # CrewAI関連のインポート
 from crewai import Agent, Task, Crew
+
+# ツールマネージャーをインポート
+from tools.tool_manager import ToolManager
+
+# ツールマネージャーのインポート
+from tools.tool_manager import ToolManager
 from pydantic import BaseModel, Field
 
 class TaskProgress(BaseModel):
@@ -63,6 +69,9 @@ class CrewAIEngine:
         # VS Code LLMラッパーを初期化
         self.llm_wrapper = VSCodeLLMWrapper(ipc_callback)
         
+        # ツールマネージャーを初期化
+        self.tool_manager = ToolManager(ipc_callback)
+        
         # 基本的なAIエージェントを初期化
         self.planner_agent = None
         self.coder_agent = None
@@ -75,36 +84,73 @@ class CrewAIEngine:
             self.logger.info("CrewAI Engine initializing...")
             
             # 基本的なAIエージェントを作成
+            # プランナーエージェント用のツール
+            planner_tools = [
+                self.tool_manager.get_tool("project_analysis"),
+                self.tool_manager.get_tool("workspace_analysis"),
+                self.tool_manager.get_tool("dependency_analysis"),
+                self.tool_manager.get_tool("file_operations")
+            ]
+            
             self.planner_agent = Agent(
                 role="Project Planner",
                 goal="Analyze user requirements and create comprehensive development plans",
                 backstory="You are an experienced project manager and software architect who specializes in breaking down complex development tasks into manageable components.",
                 verbose=True,
-                allow_delegation=False
+                allow_delegation=False,
+                tools=planner_tools
             )
+            
+            # コーダーエージェント用のツール
+            coder_tools = [
+                self.tool_manager.get_tool("file_operations"),
+                self.tool_manager.get_tool("code_analysis"),
+                self.tool_manager.get_tool("code_generation"),
+                self.tool_manager.get_tool("command_execution"),
+                self.tool_manager.get_tool("terminal")
+            ]
             
             self.coder_agent = Agent(
                 role="Software Developer",
                 goal="Implement code solutions based on the project plan",
                 backstory="You are a skilled software developer with expertise in multiple programming languages and frameworks. You write clean, efficient, and well-documented code.",
                 verbose=True,
-                allow_delegation=False
+                allow_delegation=False,
+                tools=coder_tools
             )
+            
+            # テスターエージェント用のツール
+            tester_tools = [
+                self.tool_manager.get_tool("command_execution"),
+                self.tool_manager.get_tool("terminal"),
+                self.tool_manager.get_tool("file_operations"),
+                self.tool_manager.get_tool("code_analysis")
+            ]
             
             self.tester_agent = Agent(
                 role="Quality Assurance Tester",
                 goal="Test and validate the implemented solutions",
                 backstory="You are a meticulous QA engineer who ensures software quality through comprehensive testing strategies and bug detection.",
                 verbose=True,
-                allow_delegation=False
+                allow_delegation=False,
+                tools=tester_tools
             )
+            
+            # レビューエージェント用のツール
+            reviewer_tools = [
+                self.tool_manager.get_tool("file_operations"),
+                self.tool_manager.get_tool("code_analysis"),
+                self.tool_manager.get_tool("project_analysis"),
+                self.tool_manager.get_tool("workspace_analysis")
+            ]
             
             self.reviewer_agent = Agent(
                 role="Code Reviewer",
                 goal="Review code for quality, security, and best practices",
                 backstory="You are a senior developer with extensive experience in code review, focusing on maintainability, performance, and security.",
                 verbose=True,
-                allow_delegation=False
+                allow_delegation=False,
+                tools=reviewer_tools
             )
             
             self.logger.info("CrewAI Engine initialized successfully")
