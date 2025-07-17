@@ -39,9 +39,6 @@ export async function activate(context: vscode.ExtensionContext) {
             configurationService
         );
 
-        // サイドバープロバイダーの登録
-        vscode.window.registerTreeDataProvider('crewai-connect.sidebar', crewAIProvider);
-
         // WebviewViewプロバイダーの登録
         vscode.window.registerWebviewViewProvider(
             'crewai-connect.sidebar',
