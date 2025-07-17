@@ -271,6 +271,8 @@ Just type your request in natural language. For example:
             const models = await this.ipcService.getAvailableLLMModels();
             const modelInfos = await this.ipcService.getLLMModelInfo();
             
+            this.loggingService.info(`Updating available models: ${models.length} models, ${modelInfos.length} infos`);
+            
             if (this.view) {
                 this.view.webview.postMessage({
                     type: 'updateModels',
@@ -723,6 +725,8 @@ Just type your request in natural language. For example:
         }
 
         function updateAvailableModels(models, modelInfos) {
+            console.log('Updating available models:', models, modelInfos);
+            
             const modelSelect = document.getElementById('modelSelect');
             const currentValue = modelSelect.value;
             
@@ -734,6 +738,7 @@ Just type your request in natural language. For example:
             modelSelect.appendChild(autoOption);
             
             if (modelInfos && modelInfos.length > 0) {
+                console.log('Adding model infos:', modelInfos);
                 const availableModels = modelInfos.filter(info => info.isAvailable);
                 if (availableModels.length > 0) {
                     const availableGroup = document.createElement('optgroup');
@@ -749,11 +754,43 @@ Just type your request in natural language. For example:
                     
                     modelSelect.appendChild(availableGroup);
                 }
+                
+                const unavailableModels = modelInfos.filter(info => !info.isAvailable);
+                if (unavailableModels.length > 0) {
+                    const unavailableGroup = document.createElement('optgroup');
+                    unavailableGroup.label = 'Unavailable';
+                    
+                    unavailableModels.forEach(info => {
+                        const option = document.createElement('option');
+                        option.value = info.id;
+                        option.textContent = info.name + ' (Not Available)';
+                        option.title = info.description;
+                        option.disabled = true;
+                        unavailableGroup.appendChild(option);
+                    });
+                    
+                    modelSelect.appendChild(unavailableGroup);
+                }
+            } else {
+                console.log('No model infos available, using models array:', models);
+                // フォールバック: models配列を使用
+                if (models && models.length > 0) {
+                    models.forEach(model => {
+                        if (model !== 'Auto Select') {
+                            const option = document.createElement('option');
+                            option.value = model;
+                            option.textContent = model;
+                            modelSelect.appendChild(option);
+                        }
+                    });
+                }
             }
             
             if (currentValue) {
                 modelSelect.value = currentValue;
             }
+            
+            console.log('Model select updated, options:', modelSelect.options.length);
         }
 
         // Message handling from extension
@@ -771,7 +808,7 @@ Just type your request in natural language. For example:
                     refreshMessages(data);
                     break;
                 case 'updateModels':
-                    updateAvailableModels(data.models, data.modelInfos);
+                    updateAvailableModels(data.models || event.data.models, data.modelInfos || event.data.modelInfos);
                     break;
             }
         });
